@@ -1,0 +1,4 @@
+[submodule "external/a-maci-evm"]
+	path = external/a-maci-evm
+	url = https://github.com/dorahacksglobal/a-maci-evm.git
+	branch = feat-switchable
