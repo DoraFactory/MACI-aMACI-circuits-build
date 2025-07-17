@@ -1,0 +1,11 @@
+.DS_Store
+node_modules
+.vscode
+
+_old
+ptau
+build*
+zkey
+inputs
+
+artifacts
