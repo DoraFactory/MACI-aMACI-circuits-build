@@ -9,8 +9,8 @@ const { addKeyInput } = require("./proofAddKey");
 const { proofDeactivate } = require("./proofDeactivate");
 const { adaptToUncompressed } = require("./format_proof");
 
-const wasmPath = path.join(__dirname, "../build/2-1-1-5/r1cs");
-const zkeyPath = path.join(__dirname, "../build/2-1-1-5/zkey");
+const wasmPath = path.join(__dirname, "../build/amaci/2-1-1-5/r1cs");
+const zkeyPath = path.join(__dirname, "../build/amaci/2-1-1-5/zkey");
 
 const outputPath = process.argv[2];
 if (!outputPath) {
@@ -297,6 +297,7 @@ const main = async () => {
     }),
   });
 
+  console.log("logs", logs);
   fs.writeFileSync(
     path.join(path.join(__dirname, '../inputs/logs.json')),
     JSON.stringify(stringizing(logs), undefined, 2)

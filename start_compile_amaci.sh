@@ -2,12 +2,12 @@
 
 # Check if parameter is provided
 if [ -z "$1" ]; then
-  echo "Input the circuit power"
+  echo "Input the circuit power, like 2-1-1-5/4-2-2-25"
   exit 1
 fi
 
 # Use provided parameter as output directory
-OUTPUT_DIR="amaci/build/$1"
+OUTPUT_DIR="build/amaci/$1"
 
 compile_and_ts_and_witness() {
 
