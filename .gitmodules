@@ -3,5 +3,5 @@
 	url = https://github.com/dorahacksglobal/a-maci-evm.git
 	branch = feat-switchable
 [submodule "vota-circuits"]
-	path = vota-circuits
+	path = external/vota-circuits
 	url = https://github.com/DoraFactory/Vota-Circuits.git
