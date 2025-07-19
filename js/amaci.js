@@ -79,7 +79,7 @@ class MACI {
     this.logs = [];
   }
 
-  emptyMessage() {
+  emptyMessage () {
     return {
       ciphertext: [0n, 0n, 0n, 0n, 0n, 0n, 0n],
       encPubKey: [0n, 0n],
@@ -87,8 +87,8 @@ class MACI {
       hash: 0n,
     };
   }
-
-  emptyState() {
+  
+  emptyState () {
     return {
       pubKey: [0n, 0n],
       balance: 0n,
@@ -100,7 +100,7 @@ class MACI {
     };
   }
 
-  msgToCmd(ciphertext, encPubKey) {
+  msgToCmd (ciphertext, encPubKey) {
     const sharedKey = genEcdhSharedKey(this.coordinator.privKey, encPubKey);
     try {
       const plaintext = poseidonDecrypt(ciphertext, sharedKey, 0n, 6);
@@ -130,7 +130,7 @@ class MACI {
     }
   }
 
-  initStateTree(leafIdx, pubKey, balance, c = ["0", "0", "0", "0"]) {
+  initStateTree (leafIdx, pubKey, balance, c = ["0", "0", "0", "0"]) {
     if (this.states !== MACI_STATES.FILLING)
       throw new Error("vote period ended");
 
@@ -169,7 +169,7 @@ class MACI {
     });
   }
 
-  pushDeactivateMessage(ciphertext, encPubKey) {
+  pushDeactivateMessage (ciphertext, encPubKey) {
     if (this.states !== MACI_STATES.FILLING)
       throw new Error("vote period ended");
 
@@ -210,7 +210,7 @@ class MACI {
     });
   }
 
-  pushMessage(ciphertext, encPubKey) {
+  pushMessage (ciphertext, encPubKey) {
     if (this.states !== MACI_STATES.FILLING)
       throw new Error("vote period ended");
 
@@ -251,7 +251,7 @@ class MACI {
     });
   }
 
-  initProcessedDeactivateLog(deactivates, activeState) {
+  initProcessedDeactivateLog (deactivates, activeState) {
     for (let i = 0; i < deactivates.length; i++) {
       const dLeaf = deactivates[i];
       this.deactivateTree.updateLeaf(i, poseidon(dLeaf));
@@ -262,7 +262,7 @@ class MACI {
     this.processedDMsgCount += deactivates.length;
   }
 
-  processDeactivateMessage(inputSize, subStateTreeLength) {
+  processDeactivateMessage (inputSize, subStateTreeLength) {
     const batchSize = this.batchSize;
     const batchStartIdx = this.processedDMsgCount;
     const size = Math.min(inputSize, this.dMessages.length - batchStartIdx);
@@ -443,7 +443,7 @@ class MACI {
     return { input, newDeactivate };
   }
 
-  endVotePeriod() {
+  endVotePeriod () {
     if (this.states !== MACI_STATES.FILLING)
       throw new Error("vote period ended");
     this.states = MACI_STATES.PROCESSING;
@@ -455,7 +455,7 @@ class MACI {
     console.log(["Vote End ".padEnd(60, "="), ""].join("\n"));
   }
 
-  checkCommandNow(cmd) {
+  checkCommandNow (cmd) {
     if (!cmd) {
       return "empty command";
     }
@@ -502,7 +502,7 @@ class MACI {
     }
   }
 
-  checkDeactivateCommand(cmd, subStateTreeLength) {
+  checkDeactivateCommand (cmd, subStateTreeLength) {
     if (!cmd) {
       return "empty command";
     }
@@ -527,7 +527,7 @@ class MACI {
     }
   }
 
-  processMessage(newStateSalt = 0n, inputHashPart) {
+  processMessage (newStateSalt = 0n, inputHashPart) {
     if (this.states !== MACI_STATES.PROCESSING) throw new Error("period error");
 
     const batchSize = this.batchSize;
@@ -686,7 +686,7 @@ class MACI {
     return input;
   }
 
-  endProcessingPeriod() {
+  endProcessingPeriod () {
     if (this.states !== MACI_STATES.PROCESSING)
       throw new Error("vote period ended");
     this.states = MACI_STATES.TALLYING;
@@ -701,7 +701,7 @@ class MACI {
     console.log(["Process Finished ".padEnd(60, "="), ""].join("\n"));
   }
 
-  processTally(tallySalt = 0n, inputHashPart) {
+  processTally (tallySalt = 0n, inputHashPart) {
     if (this.states !== MACI_STATES.TALLYING) throw new Error("period error");
 
     const batchSize = 5 ** this.intStateTreeDepth;

@@ -5,17 +5,15 @@ const { poseidon } = require("circom");
 const { stringizing, genKeypair, genStaticRandomKey } = require("./keypair");
 const MACI = require("./maci");
 const { genMessage } = require("./client");
-const { addKeyInput } = require("./proofAddKey");
-const { proofDeactivate } = require("./proofDeactivate");
 const { adaptToUncompressed } = require("./format_proof");
 
-const wasmPath = path.join(__dirname, "../build/2-1-1-5/r1cs");
-const zkeyPath = path.join(__dirname, "../build/2-1-1-5/zkey");
+const wasmPath = path.join(__dirname, "../build/maci/2-1-1-5/r1cs");
+const zkeyPath = path.join(__dirname, "../build/maci/2-1-1-5/zkey");
 
 const outputPath = process.argv[2];
-if (!outputPath) {
-  console.log("no output directory is specified");
-  process.exit(1);
+if (!fs.existsSync(outputPath)) {
+  fs.mkdirSync(outputPath, { recursive: true });
+  console.log(`Created output directory: ${outputPath}`);
 }
 
 const maxVoteOptions = 5;
@@ -23,7 +21,6 @@ const maxVoteOptions = 5;
 const main = async () => {
   const USER_1 = 0; // state leaf idx
   const USER_2 = 1; // state leaf idx
-  const USER_1A = 2; // state leaf idx
 
   const privateKeys = [
     111111n, // coordinator
@@ -44,131 +41,17 @@ const main = async () => {
     5, // tree config
     privateKeys[0], // coordinator
     maxVoteOptions,
-    3,
+    2,
     true
   );
 
-  main.initStateTree(USER_1, user1.pubKey, 100);
-  main.initStateTree(USER_2, user2.pubKey, 100);
+  main.initStateTreeMACI(USER_1, user1.pubKey, 100);
+  main.initStateTreeMACI(USER_2, user2.pubKey, 80);
 
   const enc1 = genKeypair(privateKeys[2]);
-
-  const dmessage1 = genMessage(enc1.privKey, coordinator.pubKey)(
-    USER_1,
-    0,
-    0,
-    0,
-    [0n, 0n],
-    user1.privKey,
-    1234567890n
-  );
-
   const enc2 = genKeypair(privateKeys[3]);
 
-  const dmessage2 = genMessage(enc2.privKey, coordinator.pubKey)(
-    USER_2,
-    0,
-    0,
-    0,
-    [0n, 0n],
-    user2.privKey,
-    1234567890n
-  );
-
-  main.pushDeactivateMessage(dmessage1, enc1.pubKey);
-  main.pushDeactivateMessage(dmessage2, enc2.pubKey);
-
   const logs = main.logs;
-
-  const { input, newDeactivate } = main.processDeactivateMessage(2, 2);
-
-  fs.writeFileSync(
-    path.join(path.join(__dirname, '../inputs/deactivate-input.json')),
-    JSON.stringify(stringizing(input), undefined, 2)
-  );
-
-  const res_deavtivate = await groth16.fullProve(
-    input,
-    `${wasmPath}/deactivate_js/deactivate.wasm`,
-    `${zkeyPath}/deactivate.zkey`
-  );
-
-  const uncompressedDeavtivateProof = await adaptToUncompressed(res_deavtivate.proof);
-  console.log(uncompressedDeavtivateProof);
-  fs.writeFileSync(
-    path.join(path.join(__dirname, '../inputs/deactivate-proof.json')),
-    JSON.stringify(uncompressedDeavtivateProof, undefined, 2)
-  );
-
-  logs.push({
-    type: "proofDeactivate",
-    data: stringizing({
-      proof: uncompressedDeavtivateProof,
-      size: 2,
-      newDeactivateCommitment: input.newDeactivateCommitment,
-      newDeactivateRoot: input.newDeactivateRoot,
-    }),
-  });
-
-  console.log("proofDeactivate DONE");
-
-  // console.log({
-  //   deactivateRoot: input.newDeactivateRoot,
-  //   deactivateCommitment: input.newDeactivateCommitment,
-  // });
-
-  // user 1
-  const user1a = genKeypair(privateKeys[5]);
-  const {
-    input: akInput,
-    d1,
-    d2,
-    nullifier,
-  } = addKeyInput({
-    coordPubKey: coordinator.pubKey,
-    oldKey: user1,
-    deactivates: newDeactivate,
-    dIdx: 0,
-  });
-  const res = await groth16.fullProve(
-    akInput,
-    `${wasmPath}/addKey_js/addKey.wasm`,
-    `${zkeyPath}/addKey.zkey`
-  );
-  main.initStateTree(USER_1A, user1a.pubKey, 100, [...d1, ...d2]);
-
-  // fs.writeFileSync(
-  //   path.join(outputPath, "addnewkey-input.json"),
-  //   JSON.stringify(stringizing(res.input), undefined, 2)
-  // );
-
-  // console.log(addNewKey);
-
-  const uncompressedAddNewKeyProof = await adaptToUncompressed(res.proof);
-  console.log(uncompressedAddNewKeyProof);
-  fs.writeFileSync(
-    path.join(path.join(__dirname, '../inputs/addnewkey-proof.json')),
-    JSON.stringify(uncompressedAddNewKeyProof, undefined, 2)
-  );
-
-  logs.push({
-    type: "proofAddNewKey",
-    data: stringizing({
-      pubKey: user1a.pubKey,
-      proof: uncompressedAddNewKeyProof,
-      d: [...d1, ...d2],
-      nullifier,
-    }),
-  });
-
-  console.log("proofAddNewKey DONE");
-
-  // fs.writeFileSync(
-  //   path.join(outputPath, "input.json"),
-  //   JSON.stringify(stringizing(input), undefined, 2)
-  // );
-
-  // VOTE PROCESS
 
   const message1 = genMessage(enc1.privKey, coordinator.pubKey)(
     USER_1,
@@ -181,25 +64,13 @@ const main = async () => {
   );
   main.pushMessage(message1, enc1.pubKey);
 
-  const enc3 = genKeypair(privateKeys[5]);
-  const message3 = genMessage(enc3.privKey, coordinator.pubKey)(
+  const message2 = genMessage(enc2.privKey, coordinator.pubKey)(
     USER_2,
     1,
     2,
-    12,
+    6,
     user2.pubKey,
     user2.privKey,
-    1234567890n
-  );
-  main.pushMessage(message3, enc3.pubKey);
-
-  const message2 = genMessage(enc2.privKey, coordinator.pubKey)(
-    USER_1A,
-    1,
-    2,
-    6,
-    user1a.pubKey,
-    user1a.privKey,
     9876543210n
   );
   main.pushMessage(message2, enc2.pubKey);
@@ -210,15 +81,17 @@ const main = async () => {
   let i = 0;
   while (main.states === 1) {
     const inputs = [];
-    const input = main.processMessage(
+    const input = main.processMACIMessage(
       genStaticRandomKey(coordinator.privKey, 20041n, BigInt(i)),
       inputs
     );
 
+    console.log("input", input);
+
     const res = await groth16.fullProve(
       input,
-      `${wasmPath}/msg_js/msg.wasm`,
-      `${zkeyPath}/msg.zkey`
+     `${wasmPath}/msg_js/msg.wasm`,
+     `${zkeyPath}/msg.zkey`
     );
 
     const uncompressedProcessMessageProof = await adaptToUncompressed(res.proof);
