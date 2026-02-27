@@ -34,6 +34,37 @@ if ! command -v pnpm >/dev/null 2>&1; then
   exit 1
 fi
 
+is_uint() {
+  case "$1" in
+    ''|*[!0-9]*)
+      return 1
+      ;;
+    *)
+      return 0
+      ;;
+  esac
+}
+
+IFS='-' read -r STATE_TREE_DEPTH INT_STATE_TREE_DEPTH VOTE_OPTION_TREE_DEPTH MESSAGE_BATCH_SIZE <<EOF
+$POWER
+EOF
+
+if [ -z "$STATE_TREE_DEPTH" ] || [ -z "$INT_STATE_TREE_DEPTH" ] || [ -z "$VOTE_OPTION_TREE_DEPTH" ] || [ -z "$MESSAGE_BATCH_SIZE" ]; then
+  echo "Error: invalid POWER format: $POWER"
+  echo "Expected format: stateTreeDepth-intStateTreeDepth-voteOptionTreeDepth-messageBatchSize (e.g. 9-4-3-125)"
+  exit 1
+fi
+
+if ! is_uint "$STATE_TREE_DEPTH" || ! is_uint "$INT_STATE_TREE_DEPTH" || ! is_uint "$VOTE_OPTION_TREE_DEPTH" || ! is_uint "$MESSAGE_BATCH_SIZE"; then
+  echo "Error: POWER must contain positive integers only: $POWER"
+  exit 1
+fi
+
+ADDKEY_CIRCUIT="AddNewKey_amaci_${STATE_TREE_DEPTH}"
+DEACTIVATE_CIRCUIT="ProcessDeactivateMessages_amaci_${STATE_TREE_DEPTH}-${MESSAGE_BATCH_SIZE}"
+MSG_CIRCUIT="ProcessMessages_amaci_${STATE_TREE_DEPTH}-${INT_STATE_TREE_DEPTH}-${MESSAGE_BATCH_SIZE}"
+TALLY_CIRCUIT="TallyVotes_amaci_${STATE_TREE_DEPTH}-${INT_STATE_TREE_DEPTH}-${VOTE_OPTION_TREE_DEPTH}"
+
 mkdir -p "$OUTPUT_DIR/bin"
 
 CONFIG_FILE="$NEW_CIRCUITS_DIR/circomkit.json"
@@ -57,12 +88,20 @@ cfg.dirBuild = outDir;
 fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2));
 " "$CONFIG_FILE" "$OUTPUT_DIR"
 
+for circuit_id in "$ADDKEY_CIRCUIT" "$DEACTIVATE_CIRCUIT" "$MSG_CIRCUIT" "$TALLY_CIRCUIT"; do
+  if ! grep -q "\"$circuit_id\"[[:space:]]*:" "$NEW_CIRCUITS_DIR/circom/circuits.json"; then
+    echo "Error: circuit \"$circuit_id\" is not defined in $NEW_CIRCUITS_DIR/circom/circuits.json"
+    echo "Add this circuit definition first, then re-run ./start_new_circuit.sh $POWER"
+    exit 1
+  fi
+done
+
 # circuit name -> output bin filename
 CIRCUIT_MAP="
-AddNewKey_amaci_2 addKey
-ProcessDeactivateMessages_amaci_2-5 deactivate
-ProcessMessages_amaci_2-1-5 msg
-TallyVotes_amaci_2-1-1 tally
+$ADDKEY_CIRCUIT addKey
+$DEACTIVATE_CIRCUIT deactivate
+$MSG_CIRCUIT msg
+$TALLY_CIRCUIT tally
 "
 
 echo "Compiling circuits with circomkit (R1CS generation)..."

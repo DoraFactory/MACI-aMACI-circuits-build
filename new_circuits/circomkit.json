@@ -1,19 +1,21 @@
 {
-    "protocol": "groth16",
-    "prime": "bn128",
-    "version": "2.1.6",
-    "circuits": "./circom/circuits.json",
-    "dirPtau": "../ptau",
-    "dirCircuits": "./circom",
-    "dirInputs": "./inputs",
-    "dirBuild": "./build",
-    "optimization": 2,
-    "inspect": false,
-    "include": ["./node_modules/circomlib/circuits"],
-    "groth16numContributions": 0,
-    "groth16askForEntropy": false,
-    "logLevel": "INFO",
-    "verbose": true,
-    "cWitness": false,
-    "wasmWitness": true
+  "protocol": "groth16",
+  "prime": "bn128",
+  "version": "2.1.6",
+  "circuits": "./circom/circuits.json",
+  "dirPtau": "../ptau",
+  "dirCircuits": "./circom",
+  "dirInputs": "./inputs",
+  "dirBuild": "/Users/bun/DoraFactory/zkp/aMACI-circuits-build/build/amaci_new/6-3-3-125",
+  "optimization": 2,
+  "inspect": false,
+  "include": [
+    "./node_modules/circomlib/circuits"
+  ],
+  "groth16numContributions": 0,
+  "groth16askForEntropy": false,
+  "logLevel": "INFO",
+  "verbose": true,
+  "cWitness": false,
+  "wasmWitness": true
 }

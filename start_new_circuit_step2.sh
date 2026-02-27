@@ -32,6 +32,57 @@ if ! command -v snarkjs >/dev/null 2>&1; then
   exit 1
 fi
 
+is_uint() {
+  case "$1" in
+    ''|*[!0-9]*)
+      return 1
+      ;;
+    *)
+      return 0
+      ;;
+  esac
+}
+
+IFS='-' read -r STATE_TREE_DEPTH INT_STATE_TREE_DEPTH VOTE_OPTION_TREE_DEPTH MESSAGE_BATCH_SIZE <<EOF
+$POWER
+EOF
+
+if [ -z "$STATE_TREE_DEPTH" ] || [ -z "$INT_STATE_TREE_DEPTH" ] || [ -z "$VOTE_OPTION_TREE_DEPTH" ] || [ -z "$MESSAGE_BATCH_SIZE" ]; then
+  echo "Error: invalid POWER format: $POWER"
+  echo "Expected format: stateTreeDepth-intStateTreeDepth-voteOptionTreeDepth-messageBatchSize (e.g. 9-4-3-125)"
+  exit 1
+fi
+
+if ! is_uint "$STATE_TREE_DEPTH" || ! is_uint "$INT_STATE_TREE_DEPTH" || ! is_uint "$VOTE_OPTION_TREE_DEPTH" || ! is_uint "$MESSAGE_BATCH_SIZE"; then
+  echo "Error: POWER must contain positive integers only: $POWER"
+  exit 1
+fi
+
+ADDKEY_CIRCUIT="AddNewKey_amaci_${STATE_TREE_DEPTH}"
+DEACTIVATE_CIRCUIT="ProcessDeactivateMessages_amaci_${STATE_TREE_DEPTH}-${MESSAGE_BATCH_SIZE}"
+MSG_CIRCUIT="ProcessMessages_amaci_${STATE_TREE_DEPTH}-${INT_STATE_TREE_DEPTH}-${MESSAGE_BATCH_SIZE}"
+TALLY_CIRCUIT="TallyVotes_amaci_${STATE_TREE_DEPTH}-${INT_STATE_TREE_DEPTH}-${VOTE_OPTION_TREE_DEPTH}"
+
+MSG_R1CS="$OUT_DIR/$MSG_CIRCUIT/$MSG_CIRCUIT.r1cs"
+TALLY_R1CS="$OUT_DIR/$TALLY_CIRCUIT/$TALLY_CIRCUIT.r1cs"
+ADDKEY_R1CS="$OUT_DIR/$ADDKEY_CIRCUIT/$ADDKEY_CIRCUIT.r1cs"
+DEACTIVATE_R1CS="$OUT_DIR/$DEACTIVATE_CIRCUIT/$DEACTIVATE_CIRCUIT.r1cs"
+
+if [ ! -f "$MSG_R1CS" ] || [ ! -f "$TALLY_R1CS" ] || [ ! -f "$ADDKEY_R1CS" ] || [ ! -f "$DEACTIVATE_R1CS" ]; then
+  echo "Error: missing required R1CS files under $OUT_DIR"
+  echo "Expected circuit IDs:"
+  echo "  $MSG_CIRCUIT"
+  echo "  $TALLY_CIRCUIT"
+  echo "  $ADDKEY_CIRCUIT"
+  echo "  $DEACTIVATE_CIRCUIT"
+  echo ""
+  echo "Currently available R1CS files:"
+  find "$OUT_DIR" -maxdepth 2 -type f -name "*.r1cs" | sort
+  echo ""
+  echo "Run ./start_new_circuit.sh $POWER first, and ensure all four circuits compile successfully."
+  exit 1
+fi
+
 mkdir -p "$OUT_DIR/zkey"
 mkdir -p "$OUT_DIR/verification_key/msg"
 mkdir -p "$OUT_DIR/verification_key/tally"
@@ -39,11 +90,12 @@ mkdir -p "$OUT_DIR/verification_key/addKey"
 mkdir -p "$OUT_DIR/verification_key/deactivate"
 mkdir -p "$OUT_DIR/inputs"
 
+export NODE_OPTIONS=--max-old-space-size=16384
 echo "Generating zkeys..."
-snarkjs g16s "$OUT_DIR/ProcessMessages_amaci_2-1-5/ProcessMessages_amaci_2-1-5.r1cs" "$PTAU" "$OUT_DIR/zkey/msg_0.zkey"
-snarkjs g16s "$OUT_DIR/TallyVotes_amaci_2-1-1/TallyVotes_amaci_2-1-1.r1cs" "$PTAU" "$OUT_DIR/zkey/tally_0.zkey"
-snarkjs g16s "$OUT_DIR/AddNewKey_amaci_2/AddNewKey_amaci_2.r1cs" "$PTAU" "$OUT_DIR/zkey/addKey_0.zkey"
-snarkjs g16s "$OUT_DIR/ProcessDeactivateMessages_amaci_2-5/ProcessDeactivateMessages_amaci_2-5.r1cs" "$PTAU" "$OUT_DIR/zkey/deactivate_0.zkey"
+snarkjs g16s "$MSG_R1CS" "$PTAU" "$OUT_DIR/zkey/msg_0.zkey"
+snarkjs g16s "$TALLY_R1CS" "$PTAU" "$OUT_DIR/zkey/tally_0.zkey"
+snarkjs g16s "$ADDKEY_R1CS" "$PTAU" "$OUT_DIR/zkey/addKey_0.zkey"
+snarkjs g16s "$DEACTIVATE_R1CS" "$PTAU" "$OUT_DIR/zkey/deactivate_0.zkey"
 
 echo "Contributing to ceremony and exporting verification keys..."
 echo "entropy_$(date +%s)" | snarkjs zkc "$OUT_DIR/zkey/msg_0.zkey" "$OUT_DIR/zkey/msg.zkey" --name="DoraHacks" -v
