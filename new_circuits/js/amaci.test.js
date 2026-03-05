@@ -10,31 +10,27 @@ const { proofDeactivate } = require("./proofDeactivate");
 const { adaptToUncompressed } = require("./format_proof");
 
 // Build paths configuration
-const POWER = process.env.AMACI_POWER || "2-1-1-5";
-const OUTPUT_BASE =
-  process.env.AMACI_OUTPUT_DIR ||
-  path.join(__dirname, `../../build/amaci_new/${POWER}`);
-const INPUTS_DIR = path.join(OUTPUT_BASE, "inputs");
-const BUILD_DIR = process.env.AMACI_BUILD_DIR || OUTPUT_BASE;
+const BUILD_DIR = path.join(__dirname, "../build");
 
 // Deactivate circuit paths
 const DEACTIVATE_WASM = path.join(BUILD_DIR, "ProcessDeactivateMessages_amaci_2-5/ProcessDeactivateMessages_amaci_2-5_js/ProcessDeactivateMessages_amaci_2-5.wasm");
-const DEACTIVATE_ZKEY = path.join(BUILD_DIR, "zkey/deactivate.zkey");
+const DEACTIVATE_ZKEY = path.join(BUILD_DIR, "ProcessDeactivateMessages_amaci_2-5/ProcessDeactivateMessages_amaci_2-5.0.zkey");
 
 // AddKey circuit paths
 const ADDKEY_WASM = path.join(BUILD_DIR, "AddNewKey_amaci_2/AddNewKey_amaci_2_js/AddNewKey_amaci_2.wasm");
-const ADDKEY_ZKEY = path.join(BUILD_DIR, "zkey/addKey.zkey");
+const ADDKEY_ZKEY = path.join(BUILD_DIR, "AddNewKey_amaci_2/AddNewKey_amaci_2.0.zkey");
 
 // ProcessMessages circuit paths
 const MSG_WASM = path.join(BUILD_DIR, "ProcessMessages_amaci_2-1-5/ProcessMessages_amaci_2-1-5_js/ProcessMessages_amaci_2-1-5.wasm");
-const MSG_ZKEY = path.join(BUILD_DIR, "zkey/msg.zkey");
+const MSG_ZKEY = path.join(BUILD_DIR, "ProcessMessages_amaci_2-1-5/ProcessMessages_amaci_2-1-5.0.zkey");
 
 // TallyVotes circuit paths
 const TALLY_WASM = path.join(BUILD_DIR, "TallyVotes_amaci_2-1-1/TallyVotes_amaci_2-1-1_js/TallyVotes_amaci_2-1-1.wasm");
-const TALLY_ZKEY = path.join(BUILD_DIR, "zkey/tally.zkey");
+const TALLY_ZKEY = path.join(BUILD_DIR, "TallyVotes_amaci_2-1-1/TallyVotes_amaci_2-1-1.0.zkey");
 
 // Output directory configuration
-const outputPath = INPUTS_DIR;
+const outputPath = path.join(__dirname, "../build/inputs");
+// Create output directory if it doesn't exist
 if (!fs.existsSync(outputPath)) {
   fs.mkdirSync(outputPath, { recursive: true });
 }
@@ -158,14 +154,10 @@ const main = async () => {
   );
   main.initStateTree(USER_1A, user1a.pubKey, 100, [...d1, ...d2]);
 
-  fs.writeFileSync(
-    path.join(outputPath, "addKey.json"),
-    JSON.stringify(stringizing(akInput), undefined, 2)
-  );
-  fs.writeFileSync(
-    path.join(outputPath, "addnewkey-input.json"),
-    JSON.stringify(stringizing(akInput), undefined, 2)
-  );
+  // fs.writeFileSync(
+  //   path.join(outputPath, "addnewkey-input.json"),
+  //   JSON.stringify(stringizing(res.input), undefined, 2)
+  // );
 
   // console.log(addNewKey);
 

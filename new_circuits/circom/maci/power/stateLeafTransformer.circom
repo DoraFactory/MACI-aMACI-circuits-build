@@ -1,7 +1,6 @@
 pragma circom 2.0.0;
 
 include "./messageValidator.circom";
-include "./lib/rerandomize.circom";
 include "../../../node_modules/circomlib/circuits/mux1.circom";
 
 /*
@@ -11,9 +10,6 @@ template StateLeafTransformer() {
     var PACKED_CMD_LENGTH = 3;
 
     signal input isQuadraticCost;
-
-    // Check active state
-    signal input coordPrivKey;
 
     // For the MessageValidator
     signal input numSignUps;
@@ -29,11 +25,6 @@ template StateLeafTransformer() {
     // signal input slTimestamp;
     // signal input pollEndTimestamp;
     signal input slNonce;
-
-    signal input slC1[2];
-    signal input slC2[2];
-    // signal input slXIncrement;
-
     signal input currentVotesForOption;
 
     // Command
@@ -48,8 +39,6 @@ template StateLeafTransformer() {
     signal input cmdSigS;
     // Note: we assume that packedCommand is valid!
     signal input packedCommand[PACKED_CMD_LENGTH];
-
-    signal input deactivate;
 
     // New state leaf (if the command is valid)
     signal output newSlPubKey[2];
@@ -89,42 +78,23 @@ template StateLeafTransformer() {
 
     newBalance <== messageValidator.newBalance;
 
-    component decryptIsActive = ElGamalDecrypt();
-    decryptIsActive.c1[0] <== slC1[0];
-    decryptIsActive.c1[1] <== slC1[1];
-    decryptIsActive.c2[0] <== slC2[0];
-    decryptIsActive.c2[1] <== slC2[1];
-    // decryptIsActive.xIncrement <== slXIncrement;
-    decryptIsActive.privKey <== coordPrivKey;
-    // component isActive = IsZero();
-    // isActive.in <== decryptIsActive.out;
-
-    component activate = IsZero();
-    activate.in <== deactivate;
-
-    component valid = IsEqual();
-    valid.in[0] <== 3;
-    valid.in[1] <== 1 - decryptIsActive.isOdd +
-                    activate.out + 
-                    messageValidator.isValid;
-
     component newSlPubKey0Mux = Mux1();
-    newSlPubKey0Mux.s <== valid.out;
+    newSlPubKey0Mux.s <== messageValidator.isValid;
     newSlPubKey0Mux.c[0] <== slPubKey[0];
     newSlPubKey0Mux.c[1] <== cmdNewPubKey[0];
     newSlPubKey[0] <== newSlPubKey0Mux.out;
 
     component newSlPubKey1Mux = Mux1();
-    newSlPubKey1Mux.s <== valid.out;
+    newSlPubKey1Mux.s <== messageValidator.isValid;
     newSlPubKey1Mux.c[0] <== slPubKey[1];
     newSlPubKey1Mux.c[1] <== cmdNewPubKey[1];
     newSlPubKey[1] <== newSlPubKey1Mux.out;
 
     component newSlNonceMux = Mux1();
-    newSlNonceMux.s <== valid.out;
+    newSlNonceMux.s <== messageValidator.isValid;
     newSlNonceMux.c[0] <== slNonce;
     newSlNonceMux.c[1] <== cmdNonce;
     newSlNonce <== newSlNonceMux.out;
 
-    isValid <== valid.out;
+    isValid <== messageValidator.isValid;
 }
