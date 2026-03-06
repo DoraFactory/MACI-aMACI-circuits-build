@@ -6,7 +6,7 @@
   "dirPtau": "./ptau",
   "dirCircuits": "./circom",
   "dirInputs": "./inputs",
-  "dirBuild": "/Users/bun/DoraFactory/zkp/aMACI-circuits-build/build/amaci_new/2-1-1-5",
+  "dirBuild": "/Users/bun/DoraFactory/zkp/aMACI-circuits-build/build/amaci_new/6-3-3-125",
   "optimization": 2,
   "inspect": false,
   "include": [

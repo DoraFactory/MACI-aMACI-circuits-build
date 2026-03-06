@@ -110,7 +110,7 @@
     "ProcessMessages_amaci_9-4-125": {
         "file": "./amaci/power/processMessages",
         "template": "ProcessMessages",
-        "params": [9, 4, 125],
+        "params": [9, 3, 125],
         "pubs": ["inputHash"]
     },
     "TallyVotes_amaci_9-4-3": {
