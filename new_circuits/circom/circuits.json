@@ -107,7 +107,7 @@
         "params": [9, 125],
         "pubs": ["inputHash"]
     },
-    "ProcessMessages_amaci_9-4-125": {
+    "ProcessMessages_amaci_9-3-125": {
         "file": "./amaci/power/processMessages",
         "template": "ProcessMessages",
         "params": [9, 3, 125],

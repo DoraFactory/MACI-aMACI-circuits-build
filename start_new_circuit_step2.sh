@@ -11,6 +11,7 @@ POWER="${1:-2-1-1-5}"
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 OUT_DIR="$ROOT_DIR/build/amaci_new/$POWER"
 PTAU="$ROOT_DIR/ptau/powersOfTau28_hez_final_22.ptau"
+NODE_MEMORY_MB=98304
 
 # circom-witnesscalc / rapidsnark paths
 CALC_WITNESS="/Users/bun/DoraFactory/circom-witnesscalc/target/release/calc-witness"
@@ -60,7 +61,7 @@ fi
 
 ADDKEY_CIRCUIT="AddNewKey_amaci_${STATE_TREE_DEPTH}"
 DEACTIVATE_CIRCUIT="ProcessDeactivateMessages_amaci_${STATE_TREE_DEPTH}-${MESSAGE_BATCH_SIZE}"
-MSG_CIRCUIT="ProcessMessages_amaci_${STATE_TREE_DEPTH}-${INT_STATE_TREE_DEPTH}-${MESSAGE_BATCH_SIZE}"
+MSG_CIRCUIT="ProcessMessages_amaci_${STATE_TREE_DEPTH}-${VOTE_OPTION_TREE_DEPTH}-${MESSAGE_BATCH_SIZE}"
 TALLY_CIRCUIT="TallyVotes_amaci_${STATE_TREE_DEPTH}-${INT_STATE_TREE_DEPTH}-${VOTE_OPTION_TREE_DEPTH}"
 
 MSG_R1CS="$OUT_DIR/$MSG_CIRCUIT/$MSG_CIRCUIT.r1cs"
@@ -90,7 +91,7 @@ mkdir -p "$OUT_DIR/verification_key/addKey"
 mkdir -p "$OUT_DIR/verification_key/deactivate"
 mkdir -p "$OUT_DIR/inputs"
 
-export NODE_OPTIONS=--max-old-space-size=16384
+export NODE_OPTIONS="--max-old-space-size=$NODE_MEMORY_MB"
 echo "Generating zkeys..."
 snarkjs g16s "$MSG_R1CS" "$PTAU" "$OUT_DIR/zkey/msg_0.zkey"
 snarkjs g16s "$TALLY_R1CS" "$PTAU" "$OUT_DIR/zkey/tally_0.zkey"

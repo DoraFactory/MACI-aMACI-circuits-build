@@ -1,9 +1,11 @@
 #!/bin/sh
 
-# Compile new aMACI 2-1-1-5 circuits into .bin using circom-witnesscalc.
-# Flow:
-# 1) Use circomkit to compile parameterized circuits (creates R1CS + circom/main/*.circom)
-# 2) Use build-circuit to compile those instantiated circuits into .bin
+# Compile only the aMACI ProcessMessages circuit for a given POWER tuple.
+# Outputs:
+# - R1CS / WASM under build/amaci_new/$POWER/<circuit_id>/
+# - BIN at build/amaci_new/$POWER/bin/msg.bin
+# - ZKEY at build/amaci_new/$POWER/zkey/msg.zkey
+# - Verification key at build/amaci_new/$POWER/verification_key/msg/verification_key.json
 
 set -e
 
@@ -12,9 +14,9 @@ POWER="${1:-2-1-1-5}"
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 NEW_CIRCUITS_DIR="$ROOT_DIR/new_circuits"
 OUTPUT_DIR="$ROOT_DIR/build/amaci_new/$POWER"
+PTAU="$ROOT_DIR/ptau/powersOfTau28_hez_final_22.ptau"
 NODE_MEMORY_MB=98304
 
-# circom-witnesscalc path
 BUILD_CIRCUIT="/Users/bun/DoraFactory/circom-witnesscalc/target/release/build-circuit"
 
 if [ ! -f "$BUILD_CIRCUIT" ]; then
@@ -30,8 +32,18 @@ if [ ! -d "$NEW_CIRCUITS_DIR" ]; then
   exit 1
 fi
 
+if [ ! -f "$PTAU" ]; then
+  echo "Error: PTAU file not found: $PTAU"
+  exit 1
+fi
+
 if ! command -v pnpm >/dev/null 2>&1; then
   echo "Error: pnpm not found in PATH"
+  exit 1
+fi
+
+if ! command -v snarkjs >/dev/null 2>&1; then
+  echo "Error: snarkjs not found in PATH"
   exit 1
 fi
 
@@ -61,12 +73,7 @@ if ! is_uint "$STATE_TREE_DEPTH" || ! is_uint "$INT_STATE_TREE_DEPTH" || ! is_ui
   exit 1
 fi
 
-ADDKEY_CIRCUIT="AddNewKey_amaci_${STATE_TREE_DEPTH}"
-DEACTIVATE_CIRCUIT="ProcessDeactivateMessages_amaci_${STATE_TREE_DEPTH}-${MESSAGE_BATCH_SIZE}"
 MSG_CIRCUIT="ProcessMessages_amaci_${STATE_TREE_DEPTH}-${VOTE_OPTION_TREE_DEPTH}-${MESSAGE_BATCH_SIZE}"
-TALLY_CIRCUIT="TallyVotes_amaci_${STATE_TREE_DEPTH}-${INT_STATE_TREE_DEPTH}-${VOTE_OPTION_TREE_DEPTH}"
-
-mkdir -p "$OUTPUT_DIR/bin"
 
 CONFIG_FILE="$NEW_CIRCUITS_DIR/circomkit.json"
 CONFIG_BACKUP="$NEW_CIRCUITS_DIR/circomkit.json.bak"
@@ -78,6 +85,15 @@ restore_config() {
 }
 
 trap restore_config EXIT
+
+if ! grep -q "\"$MSG_CIRCUIT\"[[:space:]]*:" "$NEW_CIRCUITS_DIR/circom/circuits.json"; then
+  echo "Error: circuit \"$MSG_CIRCUIT\" is not defined in $NEW_CIRCUITS_DIR/circom/circuits.json"
+  exit 1
+fi
+
+mkdir -p "$OUTPUT_DIR/bin"
+mkdir -p "$OUTPUT_DIR/zkey"
+mkdir -p "$OUTPUT_DIR/verification_key/msg"
 
 cp "$CONFIG_FILE" "$CONFIG_BACKUP"
 node -e "
@@ -91,43 +107,43 @@ fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2));
 
 export NODE_OPTIONS="--max-old-space-size=$NODE_MEMORY_MB"
 
-for circuit_id in "$ADDKEY_CIRCUIT" "$DEACTIVATE_CIRCUIT" "$MSG_CIRCUIT" "$TALLY_CIRCUIT"; do
-  if ! grep -q "\"$circuit_id\"[[:space:]]*:" "$NEW_CIRCUITS_DIR/circom/circuits.json"; then
-    echo "Error: circuit \"$circuit_id\" is not defined in $NEW_CIRCUITS_DIR/circom/circuits.json"
-    echo "Add this circuit definition first, then re-run ./start_new_circuit.sh $POWER"
-    exit 1
-  fi
-done
+echo "Compiling $MSG_CIRCUIT with circomkit..."
+(cd "$NEW_CIRCUITS_DIR" && pnpm exec circomkit compile "$MSG_CIRCUIT")
 
-# circuit name -> output bin filename
-CIRCUIT_MAP="
-$ADDKEY_CIRCUIT addKey
-$DEACTIVATE_CIRCUIT deactivate
-$MSG_CIRCUIT msg
-$TALLY_CIRCUIT tally
-"
+MSG_R1CS="$OUTPUT_DIR/$MSG_CIRCUIT/$MSG_CIRCUIT.r1cs"
+MSG_WASM="$OUTPUT_DIR/$MSG_CIRCUIT/${MSG_CIRCUIT}_js/${MSG_CIRCUIT}.wasm"
+SRC_CIRCOM="$NEW_CIRCUITS_DIR/circom/main/${MSG_CIRCUIT}.circom"
+OUT_BIN="$OUTPUT_DIR/bin/msg.bin"
 
-echo "Compiling circuits with circomkit (R1CS generation)..."
-echo "$CIRCUIT_MAP" | while read -r circuit_name bin_name; do
-  [ -z "$circuit_name" ] && continue
-  (cd "$NEW_CIRCUITS_DIR" && pnpm exec circomkit compile "$circuit_name")
-done
+if [ ! -f "$MSG_R1CS" ]; then
+  echo "Error: R1CS not found: $MSG_R1CS"
+  exit 1
+fi
 
-echo ""
-echo "Building .bin files with circom-witnesscalc..."
-echo "$CIRCUIT_MAP" | while read -r circuit_name bin_name; do
-  [ -z "$circuit_name" ] && continue
-  src_circom="$NEW_CIRCUITS_DIR/circom/main/${circuit_name}.circom"
-  out_bin="$OUTPUT_DIR/bin/${bin_name}.bin"
+if [ ! -f "$MSG_WASM" ]; then
+  echo "Error: WASM not found: $MSG_WASM"
+  exit 1
+fi
 
-  if [ ! -f "$src_circom" ]; then
-    echo "Error: instantiated circuit not found: $src_circom"
-    exit 1
-  fi
+if [ ! -f "$SRC_CIRCOM" ]; then
+  echo "Error: instantiated circuit not found: $SRC_CIRCOM"
+  exit 1
+fi
 
-  echo "  Building ${bin_name}.bin from ${circuit_name}..."
-  "$BUILD_CIRCUIT" "$src_circom" "$out_bin"
-done
+echo "Building msg.bin..."
+"$BUILD_CIRCUIT" "$SRC_CIRCOM" "$OUT_BIN"
+
+echo "Generating zkeys..."
+snarkjs g16s "$MSG_R1CS" "$PTAU" "$OUTPUT_DIR/zkey/msg_0.zkey"
+
+echo "Contributing to ceremony and exporting verification key..."
+echo "entropy_$(date +%s)" | snarkjs zkc "$OUTPUT_DIR/zkey/msg_0.zkey" "$OUTPUT_DIR/zkey/msg.zkey" --name="DoraHacks" -v
+snarkjs zkev "$OUTPUT_DIR/zkey/msg.zkey" "$OUTPUT_DIR/verification_key/msg/verification_key.json"
 
 echo ""
-echo "Done. Binaries are in: $OUTPUT_DIR/bin"
+echo "Done. ProcessMessages artifacts are in: $OUTPUT_DIR"
+echo "  Circuit ID: $MSG_CIRCUIT"
+echo "  WASM: $MSG_WASM"
+echo "  BIN:  $OUT_BIN"
+echo "  ZKEY: $OUTPUT_DIR/zkey/msg.zkey"
+echo "  VKEY: $OUTPUT_DIR/verification_key/msg/verification_key.json"
