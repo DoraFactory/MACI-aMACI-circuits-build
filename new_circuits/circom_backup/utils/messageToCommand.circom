@@ -1,10 +1,10 @@
 pragma circom 2.0.0;
 
 include "./ecdh.circom";
+include "./hasherPoseidon.circom";
 include "./unpackElement.circom";
 include "./lib/poseidonDecrypt.circom";
 include "../../node_modules/circomlib/circuits/bitify.circom";
-include "../../node_modules/circomlib/circuits/poseidon.circom";
 
 /**
  * Convert three 32-bit chunks into a single 96-bit value

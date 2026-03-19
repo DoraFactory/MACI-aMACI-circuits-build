@@ -1,7 +1,42 @@
 pragma circom 2.0.0;
 
-include "../../../node_modules/circomlib/circuits/poseidon_constants.circom";
 include "../../../node_modules/circomlib/circuits/comparators.circom";
+
+template PoseidonPermSigma() {
+    signal input in;
+    signal output out;
+
+    signal in2;
+    signal in4;
+
+    in2 <== in * in;
+    in4 <== in2 * in2;
+
+    out <== in4 * in;
+}
+
+template PoseidonPermArk(t, C, r) {
+    signal input in[t];
+    signal output out[t];
+
+    for (var i = 0; i < t; i++) {
+        out[i] <== in[i] + C[i + r];
+    }
+}
+
+template PoseidonPermMix(t, M) {
+    signal input in[t];
+    signal output out[t];
+
+    var lc;
+    for (var i = 0; i < t; i++) {
+        lc = 0;
+        for (var j = 0; j < t; j++) {
+            lc += M[i][j] * in[j];
+        }
+        out[i] <== lc;
+    }
+}
 
 template PoseidonPerm(t) {
     // Using recommended parameters from whitepaper https://eprint.iacr.org/2019/458.pdf (table 2, table 8)
@@ -24,7 +59,7 @@ template PoseidonPerm(t) {
     var k;
 
     for (var i=0; i<nRoundsF + nRoundsP; i++) {
-        ark[i] = Ark(t, C, t*i);
+        ark[i] = PoseidonPermArk(t, C, t*i);
         for (var j=0; j<t; j++) {
             if (i==0) {
                 ark[i].in[j] <== inputs[j];
@@ -35,16 +70,16 @@ template PoseidonPerm(t) {
 
         if (i < nRoundsF/2 || i >= nRoundsP + nRoundsF/2) {
             k = i < nRoundsF/2 ? i : i - nRoundsP;
-            mix[i] = Mix(t, M);
+            mix[i] = PoseidonPermMix(t, M);
             for (var j=0; j<t; j++) {
-                sigmaF[k][j] = Sigma();
+                sigmaF[k][j] = PoseidonPermSigma();
                 sigmaF[k][j].in <== ark[i].out[j];
                 mix[i].in[j] <== sigmaF[k][j].out;
             }
         } else {
             k = i - nRoundsF/2;
-            mix[i] = Mix(t, M);
-            sigmaP[k] = Sigma();
+            mix[i] = PoseidonPermMix(t, M);
+            sigmaP[k] = PoseidonPermSigma();
             sigmaP[k].in <== ark[i].out[0];
             mix[i].in[0] <== sigmaP[k].out;
             for (var j=1; j<t; j++) {
